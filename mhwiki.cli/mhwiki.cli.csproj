@@ -9,7 +9,10 @@
 
   <ItemGroup>
     <PackageReference Include="CXuesong.MW.WikiClientLibrary" Version="0.8.0-int.8" />
+    <PackageReference Include="Nito.AsyncEx.Coordination" Version="5.1.2" />
     <PackageReference Include="RestSharp" Version="110.2.0" />
+    <PackageReference Include="Spectre.Console.Cli" Version="0.49.1" />
+    <PackageReference Include="System.Net.Http.Json" Version="8.0.0" />
   </ItemGroup>
 
 </Project>
