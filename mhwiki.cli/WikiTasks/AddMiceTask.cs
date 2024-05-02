@@ -7,7 +7,7 @@ using WikiClientLibrary.Sites;
 
 namespace mhwiki.cli.WikiTasks;
 
-class AddMiceTask : WikiTask
+partial class AddMiceTask : WikiTask
 {
     private static readonly JsonSerializerOptions s_serializerOptions = new JsonSerializerOptions()
     {
@@ -21,6 +21,7 @@ class AddMiceTask : WikiTask
         {
             BaseAddress = new Uri("https://api.mouse.rip/"),
         };
+
     }
 
     internal override string TaskName => "Adding new mice (and related data)";
@@ -46,104 +47,27 @@ class AddMiceTask : WikiTask
             return;
         }
 
-        string choice;
-        do
-        {
-            choice = AnsiConsole.Prompt(
-                new SelectionPrompt<string>()
-                    .Title("How would you like to check for missing mice?")
-                    .PageSize(10)
-                    .AddChoices([
-                        "1) Create Category pages",
-                        "2) Create Mouse Group redirects",
-                        "3) Create individual Mice pages",
-                        "4) All of these at once!",
-                        "5) Go back"
+
+        var choice = AnsiConsole.Prompt(
+             new MultiSelectionPrompt<DisplayFunc>()
+                 .Title("How would you like to check for missing mice?")
+                 .PageSize(10)
+                 .DefaultInstructionsText()
+                 .AddChoices([
+                     new DisplayFunc("Create category pages", async () => await CreateMissingCategoriesAsync(site, mice)),
+                     new DisplayFunc("Create mouse group redirects", async () => await CreateMissingMouseGroupRedirects(site, mice)),
+                     new DisplayFunc("Create individual mouse pages", async () => await CreateMissingMicePages(site, mice)),
+                     new DisplayFunc("Update general mouse page", () => Task.CompletedTask),
+                     new DisplayFunc("Go back", () => Task.CompletedTask)
                     ]));
 
-            await (choice[0] switch
-            {
-                '1' => CreateMissingCategoriesAsync(site, mice),
-                '2' => CreateMissingMouseGroupRedirects(site, mice),
-                '3' => CreateMissingMicePages(site, mice),
-                '4' => Task.CompletedTask,
-                _ => Task.CompletedTask
-            });
-        } while (choice != "Go back");
+        foreach (var task in choice)
+        {
+            await task.Invoke();
+        }
     }
 
-    private async Task CreateMissingCategoriesAsync(WikiSite site, Mouse[] mice)
-    {
-        List<string> missingCategories = await GetMissingPagesFor(site, mice, static (m) => $"Category:{m.Group}").ToListAsync();
-        missingCategories = missingCategories.Select(s => s.Replace("Category:", "")).ToList();
-
-        missingCategories = AnsiConsole.Prompt(
-            new MultiSelectionPrompt<string>()
-                .Title("[red]Missing[/] category pages. Select which ones you'd like to [green]create[/].")
-                .PageSize(10)
-                .MoreChoicesText("[grey](Move up and down to reveal more groups)[/]")
-                .InstructionsText(
-                    "[grey](Press [blue]<space>[/] to toggle a group," +
-                    "[green]<enter>[/] to accept)[/]")
-                .NotRequired()
-                .AddChoices(missingCategories));
-
-        if (missingCategories.Count == 0)
-        {
-            AnsiConsole.WriteLine("None selected. Returning to previous menu");
-            return;
-        }
-
-        AnsiConsole.MarkupLine($"You selected: {string.Join(", ", missingCategories.Select(s => $"[green]{s}[/]"))}");
-        AnsiConsole.MarkupLine("Here is the page template [blue](with group placeholder text)[/]");
-        AnsiConsole.MarkupLine($"""
-
-            [grey]{MouseGroupCategoryTemplate}[/]
-
-            """);
-        if (!AnsiConsole.Confirm("Create these pages?"))
-        {
-            AnsiConsole.Clear();
-            return;
-        }
-
-        await AnsiConsole.Status()
-            .Spinner(Spinner.Known.Default)
-            .StartAsync("[yellow]Creating pages[/]", async (ctx) =>
-            {
-                foreach (var groupName in missingCategories)
-                {
-                    try
-                    {
-                        ctx.Status($"Creating {groupName}...");
-                        await Task.Delay(3000);
-                        AnsiConsole.MarkupLine($"Creating {groupName}... [green]Done![/]");
-
-                    }
-                    catch (Exception ex)
-                    {
-                        AnsiConsole.MarkupLine("[red]Error![/]");
-                        AnsiConsole.WriteException(ex);
-                    }
-
-                    //var page = new WikiPage(site, "User:Xellis");// $"Category:{groupName}");
-                    //string pageContent = MouseGroupCategoryTemplate.Replace("GROUP_NAME_PLACEHOLDER", pageTitle);
-
-                    //await page.EditAsync(new WikiPageEditOptions()
-                    //{
-                    //    Content = pageContent,
-                    //    Summary = "Created page using mhwiki-tools"
-                    //});
-                }
-
-                ctx.Status("Done!");
-            });
-
-        AnsiConsole.WriteLine("");
-        AnsiConsole.WriteLine("Press enter to continue.");
-        Console.ReadLine();
-        AnsiConsole.Clear();
-    }
+    
 
     private async Task CreateMissingMouseGroupRedirects(WikiSite site, Mouse[] mice)
     {
@@ -289,49 +213,30 @@ class AddMiceTask : WikiTask
         return response ?? [];
     }
 
-    const string MouseGroupCategoryTemplate = """
-        Listed below are the GROUP_NAME_PLACEHOLDER. Further information on these [[mice]] can be found in the [[Effectiveness]] and [[Mouse Group]] articles.
+    class DisplayFunc(string name, Func<Task> func)
+    {
+        public override string ToString() => name;
 
-        [[Category:Mice]]
-        """;
+        public async Task Invoke() => await func();
+    }
+}
 
-    const string MouseGroupRedirectTemplate = """
-        #REDIRECT [[Mouse Group#GROUP_NAME_PLACEHOLDER]]
-        """;
+public static class MultiSelectionPromptPromptExtensions
+{
+    /// <summary>
+    /// Sets the text that instructs the user of how to select items.
+    /// </summary>
+    /// <typeparam name="T">The prompt result type.</typeparam>
+    /// <param name="obj">The prompt.</param>
+    /// <param name="text">The text to display.</param>
+    /// <returns>The same instance so that multiple calls can be chained.</returns>
+    public static MultiSelectionPrompt<T> DefaultInstructionsText<T>(this MultiSelectionPrompt<T> obj)
+        where T : notnull
+    {
+        ArgumentNullException.ThrowIfNull(obj);
 
-    const string MousePageTemplate = """
-        '''{{PAGENAME}}''' is a breed of mouse found on the in [[Bountiful Beanstalk]].
-        {{ Mouse
-         | id        = 1140
-         | maxpoints = 75,000
-         | mingold   = 12,500
-         | mgroup    = Beanstalkers
-         | subgroup  = Dungeon Dwellers
-         | habitat   = [[Bountiful Beanstalk]]
-         | loot      = [[Lavish Lapis Bean]]
-         | traptype  = [[Physical]]
-         | bait      = [[Beanster Cheese]]
-         | charm     = None
-         | other     = [[Dungeon Floor]]
-         | mhinfo    = lethargic_guard
-         | image     = {{MHdomain}}/images/mice/large/6c6350b7dc221ebdddfc8ad01bbcf7be.jpg
-         | desc      = Guarding all of the inmates of the dungeon is a difficult and tiring task and as this slothful sentry is well aware, the easiest way to deal with a difficult task is... not to do it! The Lethargic Guard is pretty sure that his presence in the dungeon should be enough to keep the prisoners in line and that the "active" part of active duty is largely superfluous.
-        }}
-
-        == Cheese Preference ==
-        '''{{PAGENAME}}''' is only attracted to [[Beanster Cheese]].
-
-        == Hunting Strategy ==
-        The '''{{PAGENAME}}''' can only be attracted after planting a [[Short Vine]] to the [[Dungeon Floor]].
-
-        [[Physical]] power type is effective against '''{{PAGENAME}}'''.<br>
-        All other types are ineffective.<br>
-
-        == Loot ==
-        '''{{PAGENAME}}''' can drop:
-
-        == History and Trivia ==
-        *'''$$RELEASE_DATE$$:''' '''{{PAGENAME}}''' was released as part of $$ENVIRONMENT$$ location.
-        
-        """;
+        obj.InstructionsText = "[grey](Press [blue]<space>[/] to toggle a group," +
+                "[green]<enter>[/] to accept)[/]";
+        return obj;
+    }
 }
