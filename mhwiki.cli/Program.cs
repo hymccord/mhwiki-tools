@@ -1,10 +1,20 @@
-﻿namespace mhwiki.cli;
+﻿using Spectre.Console;
+
+namespace mhwiki.cli;
 
 internal class Program
 {
     private static async Task Main(string[] args)
     {
-        var app = new WikiApp();
-        await app.RunAsync();
+        try
+        {
+            var app = new WikiApp();
+            await app.RunAsync();
+        }
+        catch (Exception ex)
+        {
+            AnsiConsole.WriteException(ex, ExceptionFormats.ShortenEverything);
+        }
+          
     }
 }

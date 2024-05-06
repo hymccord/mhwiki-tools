@@ -34,14 +34,14 @@ partial class AddMiceTask : WikiTask
         {
             mice = await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots2)
-                .StartAsync("Retrieving mice...", async (ctx) =>
+                .StartAsync("Retrieving data from api.mouse.rip...", async (ctx) =>
                 {
                     return await GetMiceAsync();
                 });
         }
         catch (Exception e)
         {
-            AnsiConsole.MarkupLine("[red]Sorry, an error occurred getting mice from https://api.mouse.rip/mice");
+            AnsiConsole.MarkupLine("[red]Sorry, an error occurred getting mice from https://api.mouse.rip/mice[/]");
             AnsiConsole.WriteException(e);
 
             return;
@@ -67,144 +67,13 @@ partial class AddMiceTask : WikiTask
         }
     }
 
-    
-
-    private async Task CreateMissingMouseGroupRedirects(WikiSite site, Mouse[] mice)
-    {
-        List<string> missingGroups = await GetMissingPagesFor(site, mice, static (m) => m.Group).ToListAsync();
-
-        List<string> selectedGroups = AnsiConsole.Prompt(
-            new MultiSelectionPrompt<string>()
-                .Title("Mouse groups with [red]missing[/] group pages. Select which ones you'd like to [green]create[/].")
-                .PageSize(10)
-                .MoreChoicesText("[grey](Move up and down to reveal more groups)[/]")
-                .InstructionsText(
-                    "[grey](Press [blue]<space>[/] to toggle a group," +
-                    "[green]<enter>[/] to accept)[/]")
-                .NotRequired()
-                .AddChoices(missingGroups));
-
-        if (selectedGroups.Count == 0)
-        {
-            AnsiConsole.WriteLine("None selected. Returning to previous menu");
-        }
-
-        AnsiConsole.MarkupLine($"You selected: {string.Join(", ", selectedGroups.Select(s => $"[green]{s}[/]"))}");
-        AnsiConsole.MarkupLine("Here is the page template (with group placeholder text)");
-        AnsiConsole.MarkupLine($"""
-
-            [grey]{MouseGroupRedirectTemplate}[/]
-
-            """);
-        if (!AnsiConsole.Confirm("Create these pages?"))
-        {
-            return;
-        }
-
-        await AnsiConsole.Status()
-            .Spinner(Spinner.Known.Circle)
-            .StartAsync("Creating pages", async (ctx) =>
-            {
-                foreach (var groupName in selectedGroups)
-                {
-                    var page = new WikiPage(site, "User:Xellis");// $"Category:{groupName}");
-                    string pageContent = MouseGroupRedirectTemplate.Replace("GROUP_NAME_PLACEHOLDER", groupName);
-
-                    await page.EditAsync(new WikiPageEditOptions()
-                    {
-                        Content = pageContent,
-                        Summary = "Created page using mhwiki-tools"
-                    });
-                }
-            });
-    }
-
-    private async Task CreateMissingMicePages(WikiSite site, Mouse[] mice)
-    {
-        var miceDict = mice.ToDictionary(m => m.AbbreviatedName);
-        List<string> missingMice = await GetMissingPagesFor(site, mice, static (m) => m.AbbreviatedName).ToListAsync();
-
-        var missingMiceByGroup = missingMice.Select(m => miceDict[m]).GroupBy(m => m.Group);
-
-        MultiSelectionPrompt<string> prompt = new MultiSelectionPrompt<string>()
-            .Title("[red]Missing[/] mice pages. Select which ones you'd like to [green]create[/].")
-            .PageSize(20)
-            .MoreChoicesText("[grey](Move up and down to reveal more groups)[/]")
-            .InstructionsText(
-                "[grey](Press [blue]<space>[/] to toggle a group," +
-                "[green]<enter>[/] to accept)[/]")
-            .NotRequired();
-
-        foreach (var group in missingMiceByGroup)
-        {
-            prompt.AddChoiceGroup(group.Key, group.Select(m => m.AbbreviatedName));
-        }
-
-        missingMice = AnsiConsole.Prompt(prompt);
-
-        if (missingMice.Count == 0)
-        {
-            AnsiConsole.WriteLine("None selected. Returning to previous menu");
-            return;
-        }
-
-        AnsiConsole.MarkupLine($"""
-            You selected: {string.Join(", ", missingMice.Select(s => $"[green]{s}[/]"))}
-            Here is the page template [blue](with placeholder text)[/]
-
-            [grey]{MouseGroupCategoryTemplate}[/]
-
-            """);
-        if (!AnsiConsole.Confirm("Create these pages?"))
-        {
-            AnsiConsole.Clear();
-            return;
-        }
-
-        await AnsiConsole.Status()
-            .Spinner(Spinner.Known.Default)
-            .StartAsync("[yellow]Creating pages[/]", async (ctx) =>
-            {
-                foreach (var groupName in missingMice)
-                {
-                    try
-                    {
-                        ctx.Status($"Creating {groupName}...");
-                        await Task.Delay(3000);
-                        AnsiConsole.MarkupLine($"Creating {groupName}... [green]Done![/]");
-
-                    }
-                    catch (Exception ex)
-                    {
-                        AnsiConsole.MarkupLine("[red]Error![/]");
-                        AnsiConsole.WriteException(ex);
-                    }
-
-                    //var page = new WikiPage(site, "User:Xellis");// $"Category:{groupName}");
-                    //string pageContent = MouseGroupCategoryTemplate.Replace("GROUP_NAME_PLACEHOLDER", pageTitle);
-
-                    //await page.EditAsync(new WikiPageEditOptions()
-                    //{
-                    //    Content = pageContent,
-                    //    Summary = "Created page using mhwiki-tools"
-                    //});
-                }
-
-                ctx.Status("Done!");
-            });
-
-        AnsiConsole.WriteLine("");
-        AnsiConsole.WriteLine("Press enter to continue.");
-        Console.ReadLine();
-        AnsiConsole.Clear();
-    }
-
-    private static IAsyncEnumerable<string> GetMissingPagesFor(WikiSite site, Mouse[] mice, Func<Mouse, string> pageTitle)
+    private static IAsyncEnumerable<string> GetMissingPagesFor(WikiSite site, IEnumerable<Mouse> mice, Func<Mouse, string> pageTitle)
     {
         return WikiPageStub.FromPageTitles(site, mice.Select(pageTitle).ToHashSet())
             .Where(w => w.IsMissing)
             .Select(w => w.Title!);
     }
+
 
     private async Task<Mouse[]> GetMiceAsync()
     {
@@ -218,6 +87,13 @@ partial class AddMiceTask : WikiTask
         public override string ToString() => name;
 
         public async Task Invoke() => await func();
+    }
+
+    class DisplayFunc<T>(string name, Func<Task<T>> func)
+    {
+        public override string ToString() => name;
+
+        public async Task<T> Invoke() => await func();
     }
 }
 
