@@ -27,6 +27,11 @@ internal static class LiquidUtil
     {
         string text = await File.ReadAllTextAsync(filePath);
 
+        return Render(text, model);
+    }
+
+    public static string Render(string text, object model)
+    {
         if (new FluidParser().TryParse(text, out IFluidTemplate? template))
         {
             return template.Render(new TemplateContext(model));

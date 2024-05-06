@@ -21,7 +21,6 @@ partial class AddMiceTask : WikiTask
         {
             BaseAddress = new Uri("https://api.mouse.rip/"),
         };
-
     }
 
     internal override string TaskName => "Adding new mice (and related data)";
@@ -54,15 +53,16 @@ partial class AddMiceTask : WikiTask
                  .PageSize(10)
                  .DefaultInstructionsText()
                  .AddChoices([
-                     new DisplayFunc("Create category pages", async () => await CreateMissingCategoriesAsync(site, mice)),
+                     new DisplayFunc("Create category (group + subgroup) pages", async () => await CreateMissingCategoriesAsync(site, mice)),
                      new DisplayFunc("Create mouse group redirects", async () => await CreateMissingMouseGroupRedirects(site, mice)),
                      new DisplayFunc("Create individual mouse pages", async () => await CreateMissingMicePages(site, mice)),
-                     new DisplayFunc("Update general mouse page", () => Task.CompletedTask),
+                     new DisplayFunc("Update general mouse page (add new rows)", () => Task.CompletedTask),
                      new DisplayFunc("Go back", () => Task.CompletedTask)
                     ]));
 
         foreach (var task in choice)
         {
+            AnsiConsole.Clear();
             await task.Invoke();
         }
     }
@@ -111,7 +111,7 @@ public static class MultiSelectionPromptPromptExtensions
     {
         ArgumentNullException.ThrowIfNull(obj);
 
-        obj.InstructionsText = "[grey](Press [blue]<space>[/] to toggle a group," +
+        obj.InstructionsText = "[grey](Press [blue]<space>[/] to toggle a group, " +
                 "[green]<enter>[/] to accept)[/]";
         return obj;
     }

@@ -19,6 +19,13 @@ partial class AddMiceTask
             missingMiceNames = await GetMissingPagesFor(site, mice, static (m) => m.Name).ToListAsync();
         });
 
+        if (missingMiceNames.Count == 0)
+        {
+            AnsiConsole.WriteLine("No missing pages. Returning...");
+            await Task.Delay(2500);
+            return;
+        }
+
         var groupingsByMouseGroup = missingMiceNames.Select(m => miceDict[m]).GroupBy(m => m.Group);
 
         MultiSelectionPrompt<string> prompt = new MultiSelectionPrompt<string>()
@@ -82,6 +89,8 @@ partial class AddMiceTask
             string tempFile = await LiquidUtil.CreateFileFromTemplateAsync(MousePageTemplate);
             do
             {
+                AnsiConsole.Clear();
+
                 JsonObject model = MouseToModel(mouseList[0], globalProps.Select(kvp => (kvp.Key, kvp.Value)).ToArray());
                 string renderedText = await LiquidUtil.RenderTemplateFromFile(tempFile, model);
 
@@ -117,6 +126,8 @@ partial class AddMiceTask
             editedTemplateByKey[groupKey] = tempFile;
         }
 
+        AnsiConsole.WriteLine();
+
         await AnsiConsole.Status()
             .Spinner(Spinner.Known.Default)
             .StartAsync("[yellow]Creating mouse pages...[/]", async (ctx) =>
@@ -125,15 +136,15 @@ partial class AddMiceTask
                 {
                     foreach (Mouse mouse in mouseList)
                     {
-                        AnsiConsole.MarkupLine($"\t{mouse.Name}");
+                        AnsiConsole.MarkupLine($"{mouse.Name}");
                         try
                         {
                             string pageTitle = mouse.Name;
                             string pageUrl = site.SiteInfo.ServerUrl + site.SiteInfo.ArticlePath.Replace("$1", pageTitle);
                             var page = new WikiPage(site, pageTitle);
 
-                            AnsiConsole.MarkupLine("\t\tCreating mouse page.");
-                            if (false)
+                            AnsiConsole.MarkupLine("\tCreating mouse page.");
+                            if (Debug)
                             {
                                 await Task.Delay(1500);
                             }
@@ -148,7 +159,7 @@ partial class AddMiceTask
                                 });
                             }
 
-                            AnsiConsole.MarkupLine($"\t\t{pageUrl} [green]Created![/]");
+                            AnsiConsole.MarkupLine($"\t{pageUrl.Replace(" ", "_")} [green]Created![/]");
 
                             pageTitle = mouse.AbbreviatedName;
                             page = new WikiPage(site, pageTitle);
@@ -157,8 +168,8 @@ partial class AddMiceTask
                             if (mouse.Name != mouse.AbbreviatedName)
                             {
 
-                                AnsiConsole.MarkupLine("\t\tCreating abbreviated name redirect page.");
-                                if (false)
+                                AnsiConsole.MarkupLine("\tCreating abbreviated name redirect page.");
+                                if (Debug)
                                 {
                                     await Task.Delay(1500);
                                 }
@@ -173,7 +184,7 @@ partial class AddMiceTask
                                     });
                                 }
 
-                                AnsiConsole.MarkupLine($"\t\t{pageUrl} [green]Created![/]");
+                                AnsiConsole.MarkupLine($"\t{pageUrl.Replace(" ", "_")} [green]Created![/]");
                             }
 
                         }

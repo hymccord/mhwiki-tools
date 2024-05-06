@@ -7,6 +7,23 @@ partial class AddMiceTask
         [[Category:Mice]]
         """;
 
+    const string MouseGroupSection = """
+        ==={{Group}}===
+        Known Weaknessess: 
+
+        ''{{Description}}''
+
+        A list of {{Group}} can be found [[:Category:{{Group}}|here]]. These mice are further divided into sub-groups, based on their presence within the area.
+        {| cellpadding=0 cellspacing=0 style="margin: 0px; text-align:left"
+        |{% for subgroup in Subgroups %}
+        :* [[:Category:{{Group}} ({{subgroup}})|{{subgroup}}]]{% endfor %}
+        |}
+        """;
+
+    const string MouseSubgroupCategoryTemplate = """
+        [[Category:{{MouseGroup}}]]
+        """;
+
     const string MousePageTemplate = """
         '''{% raw %}{{{% endraw %}PAGENAME{% raw %}}}{% endraw %}''' is a breed of mouse found on the in [[{{Location}}]].
         {% raw %}{{{% endraw %} Mouse
