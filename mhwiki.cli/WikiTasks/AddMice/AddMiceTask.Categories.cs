@@ -1,5 +1,7 @@
 ﻿using System.Text.RegularExpressions;
 
+using mhwiki.cli.Utililty.SpectreConsole;
+
 using Spectre.Console;
 
 using WikiClientLibrary.Pages;
@@ -19,15 +21,15 @@ partial class AddMiceTask
                 missingSubgroups = await GetMissingPagesFor(site, mice.Where(m => !string.IsNullOrEmpty(m.Subgroup)), static (m) => $"Category:{m.Group} ({m.Subgroup})").ToListAsync();
             });
 
-        List<DisplayFunc> tasks = [];
+        List<Choice> tasks = [];
         if (missingGroups.Count > 0)
         {
-            tasks.Add(new DisplayFunc("Add missing mouse group category pages", async () => await CreateMissingGroupCategoriesAsync(site, mice, missingGroups)));
+            tasks.Add(new Choice("Add missing mouse group category pages", async () => await CreateMissingGroupCategoriesAsync(site, mice, missingGroups)));
         }
 
         if (missingSubgroups.Count > 0)
         {
-            tasks.Add(new DisplayFunc("Add missing mouse subgroup category pages", async () => await CreateMissingSubcategoriesAsync(site, mice, missingSubgroups)));
+            tasks.Add(new Choice("Add missing mouse subgroup category pages", async () => await CreateMissingSubcategoriesAsync(site, mice, missingSubgroups)));
         }
 
         if (tasks.Count == 0)
@@ -38,13 +40,13 @@ partial class AddMiceTask
         }
 
         var choice = AnsiConsole.Prompt(
-             new MultiSelectionPrompt<DisplayFunc>()
+             new MultiSelectionPrompt<Choice>()
                  .Title("Found missing pages. Select tasks:")
                  .PageSize(10)
                  .DefaultInstructionsText()
                  .AddChoices(tasks));
 
-        foreach (DisplayFunc? task in choice)
+        foreach (Choice? task in choice)
         {
             await task.Invoke();
         }

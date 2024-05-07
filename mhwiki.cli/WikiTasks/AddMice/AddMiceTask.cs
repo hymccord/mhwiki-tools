@@ -1,5 +1,8 @@
 ﻿using System.Net.Http.Json;
 using System.Text.Json;
+
+using mhwiki.cli.Utililty.SpectreConsole;
+
 using Spectre.Console;
 
 using WikiClientLibrary.Pages;
@@ -50,16 +53,16 @@ partial class AddMiceTask : WikiTask
 
 
         var choice = AnsiConsole.Prompt(
-             new MultiSelectionPrompt<DisplayFunc>()
+             new MultiSelectionPrompt<Choice>()
                  .Title("How would you like to check for missing mice?")
                  .PageSize(10)
                  .DefaultInstructionsText()
                  .AddChoices([
-                     new DisplayFunc("Create category (group + subgroup) pages", async () => await CreateMissingCategoriesAsync(site, mice)),
-                     new DisplayFunc("Create mouse group redirects", async () => await CreateMissingMouseGroupRedirects(site, mice)),
-                     new DisplayFunc("Create individual mouse pages", async () => await CreateMissingMicePages(site, mice)),
-                     new DisplayFunc("Update general mouse page (add new rows)", () => Task.CompletedTask),
-                     new DisplayFunc("Go back", () => Task.CompletedTask)
+                     new Choice("Create category (group + subgroup) pages", async () => await CreateMissingCategoriesAsync(site, mice)),
+                     new Choice("Create mouse group redirects", async () => await CreateMissingMouseGroupRedirects(site, mice)),
+                     new Choice("Create individual mouse pages", async () => await CreateMissingMicePages(site, mice)),
+                     new Choice("Update general mouse page (add new rows)", () => Task.CompletedTask),
+                     new Choice("Go back", () => Task.CompletedTask)
                     ]));
 
         foreach (var task in choice)
@@ -91,20 +94,6 @@ partial class AddMiceTask : WikiTask
         var response = await _restClient.GetFromJsonAsync<Mouse[]>("mice", s_serializerOptions);
 
         return response ?? [];
-    }
-
-    class DisplayFunc(string name, Func<Task> func)
-    {
-        public override string ToString() => name;
-
-        public async Task Invoke() => await func();
-    }
-
-    class DisplayFunc<T>(string name, Func<Task<T>> func)
-    {
-        public override string ToString() => name;
-
-        public async Task<T> Invoke() => await func();
     }
 }
 

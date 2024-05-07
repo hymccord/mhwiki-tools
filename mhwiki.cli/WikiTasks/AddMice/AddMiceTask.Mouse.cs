@@ -2,6 +2,8 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+using mhwiki.cli.Utililty.SpectreConsole;
+
 using Spectre.Console;
 
 using WikiClientLibrary.Pages;
@@ -61,12 +63,12 @@ partial class AddMiceTask
         var miceByName = missingMice.ToDictionary(m => m.Name, m => new List<Mouse>() { m });
 
         var howToGroup = AnsiConsole.Prompt(
-            new SelectionPrompt<DisplayFunc<Dictionary<string, List<Mouse>>>>()
+            new SelectionPrompt<Choice<Dictionary<string, List<Mouse>>>>()
                 .Title("How would you like to edit the [blue]liquid[/] templates?")
                 .AddChoices([
-                    new DisplayFunc<Dictionary<string, List<Mouse>>>("By group", () => Task.FromResult(miceByGroup!)),
-                    new DisplayFunc<Dictionary<string, List<Mouse>>>("By subgroup [green](generally best)[/]", () => Task.FromResult(miceBySubgroup!)),
-                    new DisplayFunc<Dictionary<string, List<Mouse>>>("By mouse", () => Task.FromResult(miceByName)),
+                    new Choice<Dictionary<string, List<Mouse>>>("By group", () => Task.FromResult(miceByGroup!)),
+                    new Choice<Dictionary<string, List<Mouse>>>("By subgroup [green](generally best)[/]", () => Task.FromResult(miceBySubgroup!)),
+                    new Choice<Dictionary<string, List<Mouse>>>("By mouse", () => Task.FromResult(miceByName)),
                     ]));
 
         var toEdit = await howToGroup.Invoke();
