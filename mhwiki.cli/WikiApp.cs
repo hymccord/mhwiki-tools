@@ -2,6 +2,7 @@
 using System.Net;
 using System.Text.Json;
 
+using mhwiki.cli.Utililty;
 using mhwiki.cli.WikiTasks;
 
 using Spectre.Console;
@@ -25,6 +26,7 @@ internal class WikiApp
 
         _tasks = [
             new AddMiceTask(),
+            new NewsHistoryTask(),
             new ToggleDebug()
         ];
     }
@@ -55,7 +57,7 @@ internal class WikiApp
         bool isLoggedIn = false;
         WikiSite? wikiSite = null;
         await AnsiConsole.Status()
-            .StartAsync("[yellow]Logging in...[/]", async (ctx) =>
+            .StartAsync("[yellow]Logging in to MHWiki...[/]", async (ctx) =>
             {
                 // MUST load cookies before creating site client
                 await LoadSessionCookiesAsync();
@@ -74,45 +76,10 @@ internal class WikiApp
             throw new InvalidOperationException();
         }
 
-        int tries = 0;
-        while (!isLoggedIn)
+        bool success = await LoginHelper.StartWithRetries("MHWiki", wikiSite.LoginAsync);
+        if (success)
         {
-            if (tries >= 3)
-            {
-                AnsiConsole.MarkupLine("""
-                    [red]Login failed.
-
-                    Too many attempts![/]
-                    """);
-
-                Environment.Exit(1);
-            }
-
-            if (tries == 0)
-            {
-                AnsiConsole.MarkupLine("MHWiki credentials are either [yellow]expired[/] or [red]missing[/].");
-            }
-
-            if (tries > 0)
-            {
-                AnsiConsole.Clear();
-                AnsiConsole.MarkupLine($"Login failed. Try again. ([red]{tries}/3[/])");
-            }
-
-            isLoggedIn = await LoginWithPromptAsync(wikiSite);
-            tries++;
-
-            if (isLoggedIn)
-            {
-                AnsiConsole.MarkupLine("[green]Success![/]");
-
-                Task[] taskArray = [
-                    Task.Delay(500),
-                    SaveSessionCookiesAsync()
-                ];
-
-                await Task.WhenAll(taskArray);
-            }
+            _ = SaveSessionCookiesAsync();
         }
 
         return wikiSite;
@@ -124,29 +91,6 @@ internal class WikiApp
             _wikiClient,
             apiEndpoint: "https://mhwiki.hitgrab.com/wiki/api.php"
         );
-    }
-
-    private async Task<bool> LoginWithPromptAsync(WikiSite wikiSite)
-    {
-        string username = AnsiConsole.Prompt(
-            new TextPrompt<string>("Enter [green]username[/]:")
-                .PromptStyle("yellow"));
-        string password = AnsiConsole.Prompt(
-            new TextPrompt<string>("Enter [green]password[/]:")
-                .PromptStyle("red")
-                .Secret('*'));
-
-        await AnsiConsole.Status()
-            .StartAsync("[yellow]Logging in...[/]", async (ctx) =>
-            {
-                try
-                {
-                    await wikiSite!.LoginAsync(username, password);
-                }
-                catch { }
-            });
-
-        return wikiSite.AccountInfo.IsUser;
     }
 
     private async Task LoadSessionCookiesAsync()
