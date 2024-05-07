@@ -12,6 +12,8 @@ partial class AddMiceTask : WikiTask
     private static readonly JsonSerializerOptions s_serializerOptions = new JsonSerializerOptions()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        AllowTrailingCommas = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
     };
     private readonly HttpClient _restClient;
 
@@ -74,6 +76,15 @@ partial class AddMiceTask : WikiTask
             .Select(w => w.Title!);
     }
 
+    private void MarkupPageContent(string pageContent)
+    {
+        var p = new Panel($"[grey]{Markup.Escape(pageContent)}[/]")
+        {
+            Expand = true,
+            Header = new PanelHeader("Page Content", Justify.Center)
+        };
+        AnsiConsole.Write(p);
+    }
 
     private async Task<Mouse[]> GetMiceAsync()
     {

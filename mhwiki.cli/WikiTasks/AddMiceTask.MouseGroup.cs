@@ -46,15 +46,10 @@ partial class AddMiceTask
             Here is a [green]preview render[/] of the [blue]Liquid[/] template using the first selection:
             """);
 
-            var p = new Panel($"[grey]{Markup.Escape(renderedText)}[/]")
-            {
-                Expand = true,
-                Header = new PanelHeader("Page Content", Justify.Center)
-            };
-            AnsiConsole.Write(p);
+            MarkupPageContent(renderedText);
 
             AnsiConsole.MarkupLine($"""
-            Press (e) to edit [blue]Liquid[/] template, (y) to continue, (n) to cancel
+            Press (e) to edit [blue]Liquid[/] template, (y) to [green]create pages[/], (n) to [red]cancel[/]
             """);
 
             key = AnsiConsole.Console.Input.ReadKey(true);
@@ -93,13 +88,13 @@ partial class AddMiceTask
 
                         AnsiConsole.MarkupLine($"\tCreating page...");
 
+                        string renderedText = await LiquidUtil.RenderTemplateFromFile(tempFile, new { To = $"Mouse Group#{groupName}" });
                         if (Debug)
                         {
-                            await Task.Delay(3000);
+                            MarkupPageContent(renderedText);
                         }
                         else
                         {
-                            string renderedText = await LiquidUtil.RenderTemplateFromFile(tempFile, new { To = $"Mouse Group#{groupName}" });
 
                             await page.EditAsync(new WikiPageEditOptions()
                             {

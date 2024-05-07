@@ -1,4 +1,6 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Diagnostics;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 using Spectre.Console;
 
@@ -71,16 +73,10 @@ partial class AddMiceTask
 
         ConsoleKeyInfo? key;
 
-        Dictionary<string, string> globalProps = [];
-        if (AnsiConsole.Confirm("Would you like to make any global properties to be available in the templates? (e.g. Release Date, Location)"))
+        string globalPropsFile = await LiquidUtil.CreateFileFromTemplateAsync(GlobalPropsTemplate);
+        if (AnsiConsole.Confirm("Edit global data to be available in the templates? (e.g. Release Date, Location)"))
         {
-            int howMany = AnsiConsole.Ask<int>("How many?");
-            for (int i = 0; i < howMany; i++)
-            {
-                string name = AnsiConsole.Ask<string>($"{i}) Name: ");
-                string value = AnsiConsole.Ask<string>($"{i}) Value: ");
-                globalProps[name] = value;
-            }
+            await LaunchJsonEditorAsync(globalPropsFile);
         }
 
         var editedTemplateByKey = new Dictionary<string, string>();
@@ -91,7 +87,7 @@ partial class AddMiceTask
             {
                 AnsiConsole.Clear();
 
-                JsonObject model = MouseToModel(mouseList[0], globalProps.Select(kvp => (kvp.Key, kvp.Value)).ToArray());
+                JsonObject model = MouseToModel(mouseList[0], globalPropsFile);
                 string renderedText = await LiquidUtil.RenderTemplateFromFile(tempFile, model);
 
                 AnsiConsole.MarkupLine($"""
@@ -100,22 +96,20 @@ partial class AddMiceTask
                 Here is a [green]preview render[/] of the [blue]Liquid[/] template using the first selection:
                 """);
 
-                var p = new Panel($"[grey]{Markup.Escape(renderedText)}[/]")
-                {
-                    Expand = true,
-                    Header = new PanelHeader("Page Content", Justify.Center)
-                };
-                AnsiConsole.Write(p);
+                MarkupPageContent(renderedText);
 
                 AnsiConsole.MarkupLine($"""
-                Press (e) to edit [blue]Liquid[/] template, (y) to continue, (n) to cancel
+                Press (e) to edit [blue]Liquid[/] template, (d) to edit global data, (y) to [green]create pages[/], (n) to [red]cancel[/]
                 """);
 
                 key = AnsiConsole.Console.Input.ReadKey(true);
                 if (key.Value.Key == ConsoleKey.E)
                 {
                     await LiquidUtil.EditTemplateWithNotepad(tempFile);
-                    AnsiConsole.Clear();
+                }
+                else if (key.Value.Key == ConsoleKey.D)
+                {
+                    await LaunchJsonEditorAsync(globalPropsFile);
                 }
                 else if (key.Value.Key == ConsoleKey.N)
                 {
@@ -144,18 +138,19 @@ partial class AddMiceTask
                             var page = new WikiPage(site, pageTitle);
 
                             AnsiConsole.MarkupLine("\tCreating mouse page.");
+
+                            string renderedText = await LiquidUtil.RenderTemplateFromFile(editedTemplateByKey[groupKey], MouseToModel(mouse, globalPropsFile));
                             if (Debug)
                             {
-                                await Task.Delay(1500);
+                                MarkupPageContent(renderedText);
                             }
                             else
                             {
-                                string renderedText = await LiquidUtil.RenderTemplateFromFile(editedTemplateByKey[groupKey], MouseToModel(mouseList[0], globalProps.Select(kvp => (kvp.Key, kvp.Value)).ToArray()));
 
                                 await page.EditAsync(new WikiPageEditOptions()
                                 {
                                     Content = renderedText,
-                                    Summary = "Created page from template"
+                                    Summary = "Created page using github.com/hymccord/mhwiki-tools"
                                 });
                             }
 
@@ -169,18 +164,17 @@ partial class AddMiceTask
                             {
 
                                 AnsiConsole.MarkupLine("\tCreating abbreviated name redirect page.");
+                                renderedText = LiquidUtil.Render(RedirectTemplate, new { To = mouse.Name });
                                 if (Debug)
                                 {
-                                    await Task.Delay(1500);
+                                    MarkupPageContent(renderedText);
                                 }
                                 else
                                 {
-                                    string renderedText = await LiquidUtil.RenderTemplateFromFile(RedirectTemplate, new { To = mouse.Name });
-
                                     await page.EditAsync(new WikiPageEditOptions()
                                     {
                                         Content = renderedText,
-                                        Summary = "Created page from template"
+                                        Summary = "Created page using github.com/hymccord/mhwiki-tools"
                                     });
                                 }
 
@@ -203,21 +197,20 @@ partial class AddMiceTask
         AnsiConsole.WriteLine("Press any key to continue.");
         AnsiConsole.Console.Input.ReadKey(true);
 
-        static JsonObject MouseToModel(Mouse mouse, params (string, string)[] extraProps)
+        static JsonObject MouseToModel(Mouse mouse, string globalPropsFile)
         {
-            var weaknesses = "";
+            JsonArray weaknesses = [];
             if (mouse.Weaknesses.TryGetValue(Effectiveness.VeryEffective, out var veryEff))
             {
-                weaknesses = string.Join("\n", veryEff);
+                weaknesses = [..veryEff.Select(p => p.ToString())];
             }
             else if (mouse.Weaknesses.TryGetValue(Effectiveness.Effective, out var eff))
             {
-
-                weaknesses = string.Join("\n", eff);
+                weaknesses = [.. eff.Select(p => p.ToString())];
             }
             else if (mouse.Weaknesses.TryGetValue(Effectiveness.LessEffective, out var lessEff))
             {
-                weaknesses = string.Join("\n", lessEff);
+                weaknesses = [.. lessEff.Select(p => p.ToString())];
             }
 
             var o = new JsonObject();
@@ -234,12 +227,34 @@ partial class AddMiceTask
             o["Image"] = mouse.Images.Large.AbsolutePath;
             o["Weaknesses"] = weaknesses;
 
-            foreach (var prop in extraProps)
+            JsonObject global = JsonSerializer.Deserialize<JsonObject>(File.ReadAllText(globalPropsFile), s_serializerOptions)!;
+
+            foreach ((string property, JsonNode? node) in global)
             {
-                o[prop.Item1] = prop.Item2;
+                o.Add(property, node?.DeepClone());
             }
 
             return o;
+        }
+    }
+
+    private async Task LaunchJsonEditorAsync(string filePath)
+    {
+        while (true)
+        {
+            var process = Process.Start("notepad.exe", filePath);
+            await process.WaitForExitAsync();
+
+            try
+            {
+                JsonSerializer.Deserialize<JsonObject>(File.ReadAllText(filePath), s_serializerOptions);
+                return;
+            }
+            catch
+            {
+                AnsiConsole.Clear();
+                AnsiConsole.MarkupLine("[red]Invalid json.[/] Try again.");
+            }
         }
     }
 }

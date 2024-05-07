@@ -25,6 +25,7 @@ internal class WikiApp
 
         _tasks = [
             new AddMiceTask(),
+            new ToggleDebug()
         ];
     }
 

@@ -34,8 +34,8 @@ partial class AddMiceTask
          | subgroup  = {{ Subgroup }}
          | habitat   = [[{{Location}}]]
          | loot      = 
-         | traptype  = {{ Weaknesses | newline_to_br }}
-         | bait      = 
+         | traptype  = [[{{ Weaknesses | join: "]]<br>[[" }}]]
+         | bait      = [[{{ Cheese | join: "]]<br>[[" }}]]
          | charm     = None
          | other     = 
          | mhinfo    = {{ Type }}
@@ -59,5 +59,13 @@ partial class AddMiceTask
 
     const string RedirectTemplate = """
         #REDIRECT [[{{ To }}]]
+        """;
+
+    const string GlobalPropsTemplate = """
+        // Must be valid JSON! Any properties will be available in the Liquid templates
+        {
+          "ReleaseDate": "", // Examples, add your own!
+          "Location": "",
+        }
         """;
 }
