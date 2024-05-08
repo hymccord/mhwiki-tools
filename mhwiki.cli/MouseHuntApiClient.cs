@@ -44,7 +44,7 @@ internal class MouseHuntApiClient
         return !loginRequired;
     }
 
-    public async Task<ArchivesPage?> GetPatchNotes(int page = 1)
+    public async Task<ArchivesPage?> ListPatchNotes(int page = 1)
     {
         var response = await SendRequestAsync("/managers/ajax/pages/news_archives.php",
             [
@@ -54,6 +54,23 @@ internal class MouseHuntApiClient
 
         return response.RootElement.GetProperty("archives_page")
             .Deserialize<ArchivesPage>(JsonSerializerOptionsProvider.RelaxedDateTime);
+    }
+
+    public async Task<NewsPage> GetNewsPageByIdAsync(string id)
+    {
+        NewsPage? response = await GetPageAsync<NewsPage>(
+            [
+                new ("page_class", "NewsPost"),
+                new ("page_arguments[news_post_id]", id),
+            ], JsonSerializerOptionsProvider.RelaxedDateTime);
+
+        return response;
+    }
+
+    private async Task<T?> GetPageAsync<T>(IEnumerable<KeyValuePair<string, string>> parameters, JsonSerializerOptions? jsonSerializerOptions = null)
+    {
+        var response = await SendRequestAsync("/managers/ajax/pages/page.php", parameters);
+        return response.RootElement.GetProperty("page").Deserialize<T>(jsonSerializerOptions);
     }
 
     private async Task<JsonDocument> SendRequestAsync(string relativeUri, IEnumerable<KeyValuePair<string, string>> parameters)
@@ -212,4 +229,19 @@ public class PostAuthor
 {
     public string Name { get; set; } = string.Empty;
     public string SnUserId { get; set; } = string.Empty;
+}
+
+public class NewsPage
+{
+    public string PostId { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Subtitle { get; set; } = string.Empty;
+    public bool BannerVisible { get; set; }
+    public string BannerImage { get; set; } = string.Empty;
+    public string? BannerColor { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Body { get; set; } = string.Empty;
+    public string PublishDate { get; set; } = string.Empty;
+    public string PostedBySnuid { get; set; } = string.Empty;
+    public string PostedByName { get; set; } = string.Empty;
 }
