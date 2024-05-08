@@ -76,10 +76,20 @@ internal class WikiApp
             throw new InvalidOperationException();
         }
 
-        bool success = await LoginHelper.StartWithRetries("MHWiki", wikiSite.LoginAsync);
-        if (success)
+        if (!isLoggedIn)
         {
-            _ = SaveSessionCookiesAsync();
+            bool success = await LoginHelper.StartWithRetries("MHWiki", wikiSite.LoginAsync);
+            if (success)
+            {
+                _ = SaveSessionCookiesAsync();
+            }
+            else
+            {
+                AnsiConsole.MarkupLine("[red]You can't use this app without logging in to MHWiki.[/]");
+                AnsiConsole.WriteLine("Press any key to exit.");
+                AnsiConsole.Console.Input.ReadKey(true);
+                Environment.Exit(1);
+            }
         }
 
         return wikiSite;
