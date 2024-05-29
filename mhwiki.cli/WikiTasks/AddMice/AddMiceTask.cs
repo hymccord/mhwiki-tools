@@ -58,9 +58,9 @@ partial class AddMiceTask : WikiTask
                  .PageSize(10)
                  .DefaultInstructionsText()
                  .AddChoices([
-                     new Choice("Create category (group + subgroup) pages", async () => await CreateMissingCategoriesAsync(site, mice)),
-                     new Choice("Create mouse group redirects", async () => await CreateMissingMouseGroupRedirects(site, mice)),
-                     new Choice("Create individual mouse pages", async () => await CreateMissingMicePages(site, mice)),
+                     new Choice("Create mouse group category", async () => await CreateMissingCategoriesAsync(site, mice)),
+                     new Choice("Create mouse group redirect", async () => await CreateMissingGroupRedirectsAsync(site, mice)),
+                     new Choice("Create individual mice", async () => await CreateMissingMicePages(site, mice)),
                      new Choice("Update general mouse page (add new rows)", () => Task.CompletedTask),
                      new Choice("Go back", () => Task.CompletedTask)
                     ]));
