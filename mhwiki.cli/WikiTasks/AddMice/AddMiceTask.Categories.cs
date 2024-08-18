@@ -266,7 +266,7 @@ partial class AddMiceTask
 
         (string group, string subGroup) GetGroupAndSubgroup(string input)
         {
-            var m = Regex.Match(input, @"(?<group>\w+( \w+))* \((?<subGroup>\w+( \w+)*)\)");
+            var m = Regex.Match(input, @"(?<group>.*)(?= \() \((?<subGroup>.*)\)");
 
             return (m.Groups["group"].Value, m.Groups["subGroup"].Value);
         }
